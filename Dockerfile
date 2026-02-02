@@ -1,10 +1,10 @@
 # Use PHP 7.4 with Apache
 FROM php:7.4-apache
 
-# Enable Apache rewrite
+# Enable Apache rewrite module
 RUN a2enmod rewrite
 
-# Install PHP extensions Laravel needs
+# Install PHP extensions required by Laravel
 RUN apt-get update && apt-get install -y \
     unzip \
     git \
@@ -23,6 +23,9 @@ WORKDIR /var/www/html/core
 # Copy composer files into /core
 COPY core/composer.json core/composer.lock* ./
 
+# Optional: ignore security advisories (only if you choose not to upgrade Laravel)
+# RUN composer config --global security-checker ignore
+
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
 
@@ -37,3 +40,4 @@ EXPOSE 80
 
 # Start Apache
 CMD ["apache2-foreground"]
+
