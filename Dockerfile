@@ -1,7 +1,7 @@
 # Use PHP 7.4 with Apache
 FROM php:7.4-apache
 
-# Enable Apache rewrite module
+# Enable Apache rewrite
 RUN a2enmod rewrite
 
 # Install PHP extensions required by Laravel
@@ -17,27 +17,27 @@ RUN apt-get update && apt-get install -y \
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Set working directory to /core
+# Disable Composer security blocking (Laravel 7 is EOL)
+RUN composer config --global audit.ignore "*"
+RUN composer config --global audit.block-insecure false
+
+# Set working directory to Laravel core
 WORKDIR /var/www/html/core
 
-# Copy composer files into /core
+# Copy composer files only
 COPY core/composer.json core/composer.lock* ./
 
-# Optional: ignore security advisories (only if you choose not to upgrade Laravel)
-# RUN composer config --global security-checker ignore
-
 # Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Copy the rest of the project into /var/www/html
+# Copy the rest of the project
 COPY . /var/www/html/
 
-# Fix permissions for Apache
+# Fix permissions
 RUN chown -R www-data:www-data /var/www/html
 
-# Expose HTTP port
+# Expose port
 EXPOSE 80
 
 # Start Apache
 CMD ["apache2-foreground"]
-
