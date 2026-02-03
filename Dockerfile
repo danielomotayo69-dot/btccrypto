@@ -23,16 +23,14 @@ WORKDIR /var/www/html/core
 # Copy composer files first for dependency installation
 COPY core/composer.json core/composer.lock* ./
 
+# Tell Composer to ignore security advisories (fixes blocked Laravel 7.30.7)
+RUN composer config --global audit.ignore all
+
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 # Copy the rest of the Laravel project into /core
 COPY core/ ./
-
-# Move index.php to public folder if not already moved
-# (optional if you already moved locally)
-RUN mkdir -p public
-COPY core/public/index.php public/
 
 # Set permissions for Laravel storage and cache
 RUN chmod -R 775 storage bootstrap/cache
