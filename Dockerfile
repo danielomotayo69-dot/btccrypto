@@ -1,10 +1,10 @@
-# Use PHP 7.4 with Apache
+# Stage 0: PHP + Apache
 FROM php:7.4-apache
 
 # Enable Apache rewrite module
 RUN a2enmod rewrite
 
-# Install PHP extensions Laravel needs
+# Install PHP extensions
 RUN apt-get update && apt-get install -y \
     unzip \
     git \
@@ -17,27 +17,32 @@ RUN apt-get update && apt-get install -y \
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Set working directory inside the container
+# Set working directory
 WORKDIR /var/www/html/core
 
-# Copy composer files first for dependency installation
+# Copy Composer files
 COPY core/composer.json core/composer.lock* ./
 
-# Tell Composer to ignore security advisories (fixes blocked Laravel 7.30.7)
+# Ignore security advisories and install dependencies
 RUN composer config --global audit.ignore all
+RUN composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs --no-scripts
 
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# Copy the rest of the Laravel project
+COPY core/ .
 
-# Copy the rest of the Laravel project into /core
-COPY core/ ./
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html/core \
+    && chmod -R 755 /var/www/html/core/storage /var/www/html/core/bootstrap/cache
 
-# Set permissions for Laravel storage and cache
-RUN chmod -R 775 storage bootstrap/cache
-RUN chown -R www-data:www-data storage bootstrap/cache
-
-# Expose HTTP port
+# Expose port 80
 EXPOSE 80
 
-# Start Apache in the foreground
+# Set the DocumentRoot to Laravel's public folder
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/core/public
+
+# Update Apache config for Laravel
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
+    && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+
+# Start Apache
 CMD ["apache2-foreground"]
