@@ -1,46 +1,32 @@
-# -----------------------------
-# Stage 0: PHP + Apache + Composer
-# -----------------------------
-FROM php:7.4-apache AS base
+FROM php:7.4-fpm
 
-# Enable Apache rewrite module
-RUN a2enmod rewrite
-
-# Install system dependencies and PHP extensions
+# System dependencies
 RUN apt-get update && apt-get install -y \
-    unzip \
     git \
-    libzip-dev \
+    unzip \
     libpng-dev \
+    libjpeg-dev \
     libonig-dev \
     libxml2-dev \
-    && docker-php-ext-install zip pdo pdo_mysql mbstring exif pcntl bcmath gd \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    zip \
+    curl \
+    && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd
 
-# Copy Composer from official image
+# Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Set working directory
 WORKDIR /var/www/html/core
 
-# Copy only composer files first to leverage Docker cache
+# Copy composer files
 COPY core/composer.json core/composer.lock* ./
 
-# Ignore security advisories globally
+# Disable Composer security advisory blocking
 RUN composer config --global audit.ignore all
+RUN composer config --global audit.block-insecure false
 
-# Install dependencies without dev packages
+# Install Laravel dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs --no-scripts
 
-# Copy the rest of the Laravel project
-COPY core/ ./
-
-# Set correct permissions
-RUN chown -R www-data:www-data /var/www/html/core \
-    && chmod -R 755 /var/www/html/core/storage
-
-# Expose Apache port
-EXPOSE 80
-
-# Start Apache
-CMD ["apache2-foreground"]
+# Copy the rest of your project
+COPY core ./
