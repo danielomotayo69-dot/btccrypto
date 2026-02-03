@@ -1,10 +1,10 @@
 # Use PHP 7.4 with Apache
 FROM php:7.4-apache
 
-# Enable Apache mod_rewrite
+# Enable Apache rewrite module
 RUN a2enmod rewrite
 
-# Install PHP extensions needed by Laravel
+# Install PHP extensions Laravel needs
 RUN apt-get update && apt-get install -y \
     unzip \
     git \
@@ -17,31 +17,26 @@ RUN apt-get update && apt-get install -y \
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Set Apache document root to Laravel public folder
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/core/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
-    /etc/apache2/sites-available/*.conf \
-    /etc/apache2/apache2.conf
-
-# Set working directory
+# Set working directory inside the container
 WORKDIR /var/www/html/core
 
-# Copy composer.json and composer.lock for caching
+# Copy composer files first for dependency installation
 COPY core/composer.json core/composer.lock* ./
 
-# Configure Composer to ignore advisory security blocks
-RUN composer config --global audit.ignore all && \
-    composer config --global audit.block-insecure false
-
 # Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Copy the rest of the project into the container
-COPY . /var/www/html/
+# Copy the rest of the Laravel project into /core
+COPY core/ ./
 
-# Fix storage and bootstrap/cache permissions
-RUN chown -R www-data:www-data /var/www/html/core/storage /var/www/html/core/bootstrap/cache && \
-    chmod -R 775 /var/www/html/core/storage /var/www/html/core/bootstrap/cache
+# Move index.php to public folder if not already moved
+# (optional if you already moved locally)
+RUN mkdir -p public
+COPY core/public/index.php public/
+
+# Set permissions for Laravel storage and cache
+RUN chmod -R 775 storage bootstrap/cache
+RUN chown -R www-data:www-data storage bootstrap/cache
 
 # Expose HTTP port
 EXPOSE 80
